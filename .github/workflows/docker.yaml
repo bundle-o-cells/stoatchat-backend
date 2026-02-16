@@ -21,31 +21,86 @@ concurrency:
 
 jobs:
   base:
-    name: Test base image build
+    name: Build base image
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
     steps:
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          sudo docker system prune -af
+
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build base image
+      - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push base image
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: false
-          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          platforms: linux/amd64
           tags: ghcr.io/${{ github.repository_owner }}/stoatchat-base:latest
-          cache-from: type=gha,scope=buildx-base-multi-arch
-          cache-to: type=gha,scope=buildx-base-multi-arch,mode=max
+          cache-from: type=gha,scope=base
+          cache-to: type=gha,scope=base,mode=max
 
-  publish:
+  services:
+    name: Build ${{ matrix.service }}
+    needs: base
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
-    name: Publish Docker images
+    strategy:
+      max-parallel: 1  # Build one at a time to avoid resource exhaustion
+      fail-fast: false
+      matrix:
+        service:
+          - name: api
+            dockerfile: crates/delta/Dockerfile
+            image: stoatchat-api
+          - name: events
+            dockerfile: crates/bonfire/Dockerfile
+            image: stoatchat-events
+          - name: file-server
+            dockerfile: crates/services/autumn/Dockerfile
+            image: stoatchat-file-server
+          - name: proxy
+            dockerfile: crates/services/january/Dockerfile
+            image: stoatchat-proxy
+          - name: gifbox
+            dockerfile: crates/services/gifbox/Dockerfile
+            image: stoatchat-gifbox
+          - name: crond
+            dockerfile: crates/daemons/crond/Dockerfile
+            image: stoatchat-crond
+          - name: pushd
+            dockerfile: crates/daemons/pushd/Dockerfile
+            image: stoatchat-pushd
+          - name: voice-ingress
+            dockerfile: crates/daemons/voice-ingress/Dockerfile
+            image: stoatchat-voice-ingress
+
     steps:
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          sudo docker system prune -af
+          df -h
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -59,205 +114,29 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Build and push base image
-      - name: Build and push base image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ghcr.io/${{ github.repository_owner }}/stoatchat-base:latest
-          cache-from: type=gha,scope=buildx-base-multi-arch
-          cache-to: type=gha,scope=buildx-base-multi-arch,mode=max
-
-      # stoatchat/api (delta)
-      - name: Docker meta - API
-        id: meta-delta
+      - name: Docker metadata
+        id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/stoatchat-api
+          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.service.image }}
           tags: |
             type=ref,event=tag
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push API
+      - name: Build and push ${{ matrix.service.name }}
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          platforms: linux/amd64,linux/arm64
-          file: crates/delta/Dockerfile
-          tags: ${{ steps.meta-delta.outputs.tags }}
+          platforms: linux/amd64
+          file: ${{ matrix.service.dockerfile }}
+          tags: ${{ steps.meta.outputs.tags }}
           build-args: |
             BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/stoatchat-base:latest
-          labels: ${{ steps.meta-delta.outputs.labels }}
-          cache-from: type=gha,scope=buildx-delta
-          cache-to: type=gha,scope=buildx-delta,mode=max
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.service.name }}
+          cache-to: type=gha,scope=${{ matrix.service.name }},mode=max
 
-      # stoatchat/events (bonfire)
-      - name: Docker meta - Events
-        id: meta-bonfire
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/stoatchat-events
-          tags: |
-            type=ref,event=tag
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push Events
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          file: crates/bonfire/Dockerfile
-          tags: ${{ steps.meta-bonfire.outputs.tags }}
-          build-args: |
-            BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/stoatchat-base:latest
-          labels: ${{ steps.meta-bonfire.outputs.labels }}
-          cache-from: type=gha,scope=buildx-bonfire
-          cache-to: type=gha,scope=buildx-bonfire,mode=max
-
-      # stoatchat/file-server (autumn)
-      - name: Docker meta - File Server
-        id: meta-autumn
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/stoatchat-file-server
-          tags: |
-            type=ref,event=tag
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push File Server
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          file: crates/services/autumn/Dockerfile
-          tags: ${{ steps.meta-autumn.outputs.tags }}
-          build-args: |
-            BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/stoatchat-base:latest
-          labels: ${{ steps.meta-autumn.outputs.labels }}
-          cache-from: type=gha,scope=buildx-autumn
-          cache-to: type=gha,scope=buildx-autumn,mode=max
-
-      # stoatchat/proxy (january)
-      - name: Docker meta - Proxy
-        id: meta-january
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/stoatchat-proxy
-          tags: |
-            type=ref,event=tag
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push Proxy
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          file: crates/services/january/Dockerfile
-          tags: ${{ steps.meta-january.outputs.tags }}
-          build-args: |
-            BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/stoatchat-base:latest
-          labels: ${{ steps.meta-january.outputs.labels }}
-          cache-from: type=gha,scope=buildx-january
-          cache-to: type=gha,scope=buildx-january,mode=max
-
-      # stoatchat/gifbox
-      - name: Docker meta - Gifbox
-        id: meta-gifbox
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/stoatchat-gifbox
-          tags: |
-            type=ref,event=tag
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push Gifbox
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          file: crates/services/gifbox/Dockerfile
-          tags: ${{ steps.meta-gifbox.outputs.tags }}
-          build-args: |
-            BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/stoatchat-base:latest
-          labels: ${{ steps.meta-gifbox.outputs.labels }}
-          cache-from: type=gha,scope=buildx-gifbox
-          cache-to: type=gha,scope=buildx-gifbox,mode=max
-
-      # stoatchat/crond
-      - name: Docker meta - Crond
-        id: meta-crond
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/stoatchat-crond
-          tags: |
-            type=ref,event=tag
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push Crond
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          file: crates/daemons/crond/Dockerfile
-          tags: ${{ steps.meta-crond.outputs.tags }}
-          build-args: |
-            BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/stoatchat-base:latest
-          labels: ${{ steps.meta-crond.outputs.labels }}
-          cache-from: type=gha,scope=buildx-crond
-          cache-to: type=gha,scope=buildx-crond,mode=max
-
-      # stoatchat/pushd
-      - name: Docker meta - Pushd
-        id: meta-pushd
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/stoatchat-pushd
-          tags: |
-            type=ref,event=tag
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push Pushd
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          file: crates/daemons/pushd/Dockerfile
-          tags: ${{ steps.meta-pushd.outputs.tags }}
-          build-args: |
-            BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/stoatchat-base:latest
-          labels: ${{ steps.meta-pushd.outputs.labels }}
-          cache-from: type=gha,scope=buildx-pushd
-          cache-to: type=gha,scope=buildx-pushd,mode=max
-
-      # stoatchat/voice-ingress
-      - name: Docker meta - Voice Ingress
-        id: meta-voice-ingress
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/stoatchat-voice-ingress
-          tags: |
-            type=ref,event=tag
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push Voice Ingress
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          file: crates/daemons/voice-ingress/Dockerfile
-          tags: ${{ steps.meta-voice-ingress.outputs.tags }}
-          build-args: |
-            BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/stoatchat-base:latest
-          labels: ${{ steps.meta-voice-ingress.outputs.labels }}
-          cache-from: type=gha,scope=buildx-voice-ingress
-          cache-to: type=gha,scope=buildx-voice-ingress,mode=max
+      - name: Clean up
+        if: always()
+        run: docker system prune -af
