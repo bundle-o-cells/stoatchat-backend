@@ -1,5 +1,56 @@
 # Changelog
 
+## [0.13.7](https://github.com/stoatchat/stoatchat/compare/v0.13.6...v0.13.7) (2026-05-21)
+
+
+### Bug Fixes
+
+* sanitize emoji input to handle variation selectors ([#774](https://github.com/stoatchat/stoatchat/issues/774)) ([2d308e0](https://github.com/stoatchat/stoatchat/commit/2d308e03d58c19f27b5b4d65dc2a15ef20b56190))
+* update mention count badge for channel acks ([#769](https://github.com/stoatchat/stoatchat/issues/769)) ([0d9ae50](https://github.com/stoatchat/stoatchat/commit/0d9ae508d9d2199f0e408b8ca634d20489be6f61))
+
+## [0.13.6](https://github.com/stoatchat/stoatchat/compare/v0.13.5...v0.13.6) (2026-05-18)
+
+
+### Features
+
+* Update FCM payload for android notifications ([#766](https://github.com/stoatchat/stoatchat/issues/766)) ([acbc087](https://github.com/stoatchat/stoatchat/commit/acbc087982e9aeb05cabc5ab4c9b1291f67490ad))
+* user slowmode events ([#760](https://github.com/stoatchat/stoatchat/issues/760)) ([af0d8aa](https://github.com/stoatchat/stoatchat/commit/af0d8aad14dc68d88159d0e1c714077d362e21e4))
+
+
+### Bug Fixes
+
+* include `minio` region as tests need it ([#761](https://github.com/stoatchat/stoatchat/issues/761)) ([298742d](https://github.com/stoatchat/stoatchat/commit/298742dbad4eafae356f976c56b9db23904b0c3a))
+* set env var for publishing crates ([#768](https://github.com/stoatchat/stoatchat/issues/768)) ([018afaf](https://github.com/stoatchat/stoatchat/commit/018afaf38f6330d92dad2a68b640c0cb3f6b639a))
+* Use proper headers to determine IP when not behind cloudflare ([#764](https://github.com/stoatchat/stoatchat/issues/764)) ([494c8b7](https://github.com/stoatchat/stoatchat/commit/494c8b7cabaae2a51039a7a5b559d5e2e5279554))
+* voice ingress crashing due to new Result in AMQP::new_auto() ([#765](https://github.com/stoatchat/stoatchat/issues/765)) ([2871632](https://github.com/stoatchat/stoatchat/commit/2871632382395cb20cbe0047c542d3ac31ff3f03))
+
+
+### Miscellaneous Chores
+
+* switch to lapin ([#767](https://github.com/stoatchat/stoatchat/issues/767)) ([5b19853](https://github.com/stoatchat/stoatchat/commit/5b1985381ae829a92c80a19e91a414cd9dc4de93))
+
+## [0.13.5](https://github.com/stoatchat/stoatchat/compare/v0.13.4...v0.13.5) (2026-05-17)
+
+
+### Bug Fixes
+
+* dont panic on hash missing when deleting files ([#755](https://github.com/stoatchat/stoatchat/issues/755)) ([c902077](https://github.com/stoatchat/stoatchat/commit/c902077cf51076fee11712eb732dc8a8f786fc4b))
+
+## [0.13.4](https://github.com/stoatchat/stoatchat/compare/v0.13.3...v0.13.4) (2026-05-16)
+
+
+### Bug Fixes
+
+* add TLS feature to livekit-api crate ([#753](https://github.com/stoatchat/stoatchat/issues/753)) ([6cfee1f](https://github.com/stoatchat/stoatchat/commit/6cfee1f601c1e084df7c8f1e7a5e8a560d1dd514))
+
+## [0.13.3](https://github.com/stoatchat/stoatchat/compare/v0.13.2...v0.13.3) (2026-05-15)
+
+
+### Bug Fixes
+
+* don't automatically set up rabbitmq in delta ([#749](https://github.com/stoatchat/stoatchat/issues/749)) ([7647cfc](https://github.com/stoatchat/stoatchat/commit/7647cfc8d93aba99f5faef13eb3d970097540d76))
+* don't declare queues which seem to cause the backend to crash in prod ([7647cfc](https://github.com/stoatchat/stoatchat/commit/7647cfc8d93aba99f5faef13eb3d970097540d76))
+
 ## [0.13.2](https://github.com/stoatchat/stoatchat/compare/v0.13.1...v0.13.2) (2026-05-11)
 
 
